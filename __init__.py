@@ -65,7 +65,8 @@ def delete_mults(arr):
     return arr
 
 
-def parse_css(tag):
+def parse_css(tag,prev,arr,index):
+    prev=prev.split('#')[0].split('.')[0].split('{')[0]
     tname=''
     tclass=''
     tid=''
@@ -93,8 +94,51 @@ def parse_css(tag):
                 text+=i
             else:
                 tname+=i
-
+    custom=''
+    if '[' in tname:
+        if ']' in tname:
+            start=0
+            while not tname[start]=='[':
+                start += 1
+            end = 0
+            while not tname[end] == ']':
+                end += 1
+            cur=start+1
+            mod='name'
+            while cur<end:
+                if tname[cur]=='=':
+                    mod='quote'
+                elif tname[cur]==' ':
+                    if mod=='val':
+                        tname = tname[:cur] + '\'' + tname[cur:]
+                        end+=1
+                    mod='name'
+                elif tname[cur] in ['"','\'']:
+                    mod='name'
+                elif mod=='quote':
+                    if not tname[cur] in ['\'','"']:
+                        tname=tname[:cur]+'\''+tname[cur:]
+                        end+=1
+                    mod='val'
+                cur+=1
+            tname=tname.replace('[',' ')
+            tname=tname.replace(']','')
     result=tname
+    if result=='':
+        if prev=='table':
+            result='tr'
+            arr[index]['tag']='tr'
+        elif prev=='tr':
+            result='td'
+            arr[index]['tag'] = 'td'
+        elif prev=='ul':
+            result='li'
+            arr[index]['tag'] = 'li'+('' if tclass=='' else ('.'+tclass))
+        elif prev=='em':
+            result='span'
+            arr[index]['tag'] = 'span'
+        else:
+            result='div'
     if not tclass=='':
         result+=' class=\''+tclass+'\''
     if not tid=='':
@@ -103,24 +147,37 @@ def parse_css(tag):
 
 def test_out(arr):
     stack=[]
+    index=0
+    print(arr)
     for i in arr:
         if not i['tag'].strip()=='':
             level=i['level']
             tag=i['tag']
-            tagname=parse_css(tag).split(' ')[0]
+            if index==0:
+                prev = ''
+            else:
+                prev=''
+                pindex=index
+                while pindex>0:
+                    pindex-=1
+                    if arr[pindex]['level']<level:
+                        prev=arr[pindex]['tag']
+                        break
+            tagname=parse_css(tag,prev,arr,index).split(' ')[0].split('[')[0]
             if len(stack)>0:
                 while level<=stack[-1][1]:
                     print('\t'*stack[-1][1]+'</'+stack[-1][0]+'>')
                     stack.pop(-1)
             stack.append([tagname.split('####')[0],level])
-            print('\t'*level+'<'+parse_css(tag).split('####')[0]+'>')
+            print('\t'*level+'<'+parse_css(tag,prev,arr,index).split('####')[0]+'>')
             if '{' in tag:
                 print('\t'*(level+1)+tag.split('{')[1].split('}')[0]) # это НЕ тег
+        index+=1
     for i in range(len(stack)):
         tag=stack[-1-i]
         print('\t'*tag[1]+'</'+tag[0]+'>')
 
-text='html>head#s+body>ul.list*2>li.item*3'#input()
+text='html>head+body>a[name="d" b=98 c=6 q=12 ]*2'#input()
 parsed=parse(text)
 parsed=delete_mults(parsed)
 test_out(parsed)
